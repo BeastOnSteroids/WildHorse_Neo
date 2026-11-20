@@ -35,6 +35,10 @@ on:
       kernelsu_branch:
         required: true
         type: string
+      ksu_variant:
+        required: false
+        type: string
+        default: SukiSU-Nova
       version:
         required: false
         type: string
@@ -111,7 +115,7 @@ jobs:
       sub_level: ${{ matrix.sub_level }}
       os_patch_level: ${{ matrix.os_patch_level }}
       revision: ${{ matrix.revision || '' }}
-      ksu_variant: ${{ inputs.clean_build && 'Clean' || inputs.disable_bakasu && 'NoKSU' || 'BakaSU' }}
+      ksu_variant: ${{ inputs.clean_build && 'Clean' || inputs.disable_bakasu && 'NoKSU' || inputs.ksu_variant }}
       ksu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version || '' }}
       build_time: ${{ inputs.build_time || '' }}
