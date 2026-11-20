@@ -105,7 +105,7 @@ on:
 
 jobs:
   build-kernel:
-    name: "${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }}${{ inputs.revision && format('-{0}', inputs.revision) || '' }}-${{ inputs.clean_build && 'Clean' || inputs.disable_bakasu && 'NoKSU' || 'SukiSU-Nova' }}"
+    name: "${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }}${{ inputs.revision && format('-{0}', inputs.revision) || '' }}-${{ inputs.clean_build && 'Clean' || inputs.disable_bakasu && 'NoKSU' || inputs.ksu_variant }}"
     runs-on: ubuntu-latest
     # Bypass 模式包含第二次构建，并保留每次构建的超时重试空间。
     timeout-minutes: ${{ inputs.build_bypass && 180 || 60 }}
@@ -113,7 +113,7 @@ jobs:
     # ==================== 环境变量配置 ====================
     # ccache 配置用于加速重复编译
     env:
-      BUILD_VARIANT: ${{ inputs.clean_build && 'Clean' || inputs.disable_bakasu && 'NoKSU' || 'SukiSU-Nova' }}
+      BUILD_VARIANT: ${{ inputs.clean_build && 'Clean' || inputs.disable_bakasu && 'NoKSU' || inputs.ksu_variant }}
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
       CCACHE_NOHASHDIR: "true"
       CCACHE_HARDLINK: "true"
@@ -140,7 +140,7 @@ jobs:
             echo "KSU 分支      : 不适用"
             echo "Droidspaces   : ${{ inputs.droidspaces }}"
           else
-            echo "KernelSU      : SukiSU Nova (builtin)"
+            echo "KernelSU      : $BUILD_VARIANT"
             echo "KSU 分支      : ${{ inputs.ksu_branch }}"
             echo "Droidspaces   : ${{ inputs.droidspaces }}"
           fi
@@ -321,9 +321,9 @@ jobs:
           rm -rf AnyKernel3/.git
 
           if [ "${{ inputs.clean_build }}" != "true" ] && [ "${{ inputs.disable_bakasu }}" != "true" ]; then
-            sed -i 's/BakaSU/SukiSU Nova/g' AnyKernel3/anykernel.sh
+            sed -i "s/BakaSU/${BUILD_VARIANT}/g" AnyKernel3/anykernel.sh
             if [ -f AnyKernel3/banner ]; then
-              sed -i 's/BakaSU/SukiSU Nova/g' AnyKernel3/banner
+              sed -i "s/BakaSU/${BUILD_VARIANT}/g" AnyKernel3/banner
             fi
           fi
 
@@ -589,47 +589,73 @@ jobs:
           echo "obj-y += hmbird_patch.o" >> Makefile
 
       # ==================== 确定 KernelSU 分支 ====================
-      # SukiSU Nova built-in integration. Keep legacy workflow inputs for callers.
+      # Resolve the source and ref together for the selected root flavor.
       - name: 确定 KernelSU 分支
         id: ksu-branch
         if: inputs.clean_build != true && inputs.disable_bakasu != true
         run: |
           branch_input="${{ inputs.ksu_branch }}"
-
-          # Existing callers use main or an empty ref for the default root branch.
+          case "$BUILD_VARIANT" in
+            SukiSU-Nova)
+              ROOT_REPO=https://github.com/SukiSU-Nova/SukiSU-Nova.git
+              ROOT_PIN=4bec532dd447e2852aa8932afa768255350c103a
+              ;;
+            Next)
+              ROOT_REPO=https://github.com/KernelSU-Next/KernelSU-Next.git
+              ROOT_PIN=aa235b99574b5b349cdb4980bcb98fd58e6abb28
+              if [ "${{ inputs.enable_susfs }}" = true ]; then
+                ROOT_REPO=https://github.com/pershoot/KernelSU-Next.git
+                ROOT_PIN=39b15dead6fa806cb3582f866b081fa1d9e1c9e4
+              fi
+              ;;
+            Official)
+              ROOT_REPO=https://github.com/tiann/KernelSU.git
+              ROOT_PIN=64833c005eca6a8dc3d73ec2d37d84c37e0d9ad2
+              ;;
+            *) echo "::error::Unsupported root variant: $BUILD_VARIANT"; exit 1 ;;
+          esac
           if [ -z "$branch_input" ] || [ "$branch_input" = "main" ] || [ "$branch_input" = "builtin" ]; then
-            BRANCH="4bec532dd447e2852aa8932afa768255350c103a"
-            echo "Using pinned SukiSU Nova builtin commit: $BRANCH"
+            BRANCH="$ROOT_PIN"
+            echo "Using pinned $BUILD_VARIANT commit: $BRANCH"
           else
             BRANCH="$branch_input"
             echo "使用自定义分支/提交: $branch_input"
           fi
 
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "ROOT_REPO=$ROOT_REPO" >> "$GITHUB_ENV"
           echo "KSU 分支: $BRANCH"
 
       # ==================== 添加 KernelSU ====================
-      # Integrate SukiSU Nova from its built-in branch.
+      # Integrate exactly one root source as a built-in driver.
       - name: 添加 KernelSU
         if: inputs.clean_build != true && inputs.disable_bakasu != true
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
           set -euo pipefail
-          echo "Integrating SukiSU Nova (built-in)..."
-          git clone https://github.com/SukiSU-Nova/SukiSU-Nova.git KernelSU
+          echo "Integrating $BUILD_VARIANT (built-in) from $ROOT_REPO..."
+          git clone "$ROOT_REPO" KernelSU
           git -C KernelSU checkout --detach "$BRANCH"
           ln -s ../../KernelSU/kernel common/drivers/kernelsu
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> common/drivers/Makefile
           sed -i '/^endmenu/i source "drivers/kernelsu/Kconfig"' common/drivers/Kconfig
-          if ! grep -q '^config KSU_SUSFS$' KernelSU/kernel/Kconfig; then
-            echo "::error::This workflow requires a SukiSU Nova builtin ref with classic SUSFS support."
-            exit 1
+          if [ "${{ inputs.enable_susfs }}" = true ] && [ "$BUILD_VARIANT" != Official ]; then
+            if ! grep -rq --include='Kconfig*' '^config KSU_SUSFS$' KernelSU/kernel; then
+              echo "::error::$BUILD_VARIANT ref does not include the required inline SUSFS integration."
+              exit 1
+            fi
           fi
 
           if [ -d "KernelSU/.git" ]; then
             KSU_ACTUAL_REF=$(git -C KernelSU rev-parse HEAD)
+            if [ "$BUILD_VARIANT" = Next ] && grep -q 'BASE_BRANCH' KernelSU/kernel/Kbuild; then
+              ROOT_BASE=$(git -C KernelSU merge-base HEAD refs/remotes/origin/dev)
+              ROOT_COUNT=$(git -C KernelSU rev-list --count "$ROOT_BASE")
+              sed -i "s/^KSU_GIT_VERSION := .*/KSU_GIT_VERSION := $ROOT_COUNT/" KernelSU/kernel/Kbuild
+              echo "KernelSU Next version uses upstream base $ROOT_BASE ($ROOT_COUNT commits)"
+            fi
             if [[ "$BRANCH" =~ ^[a-fA-F0-9]{40}$ ]] && [[ "${KSU_ACTUAL_REF,,}" != "${BRANCH,,}" ]]; then
-              echo "::error::SukiSU Nova commit $KSU_ACTUAL_REF does not match $BRANCH"
+              echo "::error::$BUILD_VARIANT commit $KSU_ACTUAL_REF does not match $BRANCH"
               exit 1
             fi
             echo "KSU_ACTUAL_REF=$KSU_ACTUAL_REF" >> "$GITHUB_ENV"
@@ -637,7 +663,7 @@ jobs:
             echo "KSU_LATEST_COMMIT_DATE=$KSU_LATEST_COMMIT_DATE" >> "$GITHUB_ENV"
             echo "KSU 仓库最新提交日期: $KSU_LATEST_COMMIT_DATE"
           else
-            echo "::error::SukiSU Nova integration did not create KernelSU"
+            echo "::error::$BUILD_VARIANT integration did not create KernelSU"
             exit 1
           fi
 
@@ -656,13 +682,18 @@ jobs:
           case "$BUILD_VARIANT" in
             "Official")
               cd ./KernelSU
-              cp $SUSFS4KSU/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
+              ENABLE_PATCH="$GITHUB_WORKSPACE/.github/patches/10_enable_susfs_for_ksu.patch"
+              if [ ! -f "$ENABLE_PATCH" ]; then
+                ENABLE_PATCH="$SUSFS4KSU/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
+              fi
+              cp "$ENABLE_PATCH" ./10_enable_susfs_for_ksu.patch
               # 兼容旧版补丁：仅当补丁仍只修改 kernel/Makefile 时，才替换为 kernel/Kbuild
               if grep -q '^diff --git a/kernel/Makefile b/kernel/Makefile' ./10_enable_susfs_for_ksu.patch \
                 && ! grep -q '^diff --git a/kernel/Kbuild b/kernel/Kbuild' ./10_enable_susfs_for_ksu.patch; then
                 sed -i 's|kernel/Makefile|kernel/Kbuild|g' ./10_enable_susfs_for_ksu.patch
               fi
-              patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
+              patch -p1 --dry-run --forward < 10_enable_susfs_for_ksu.patch
+              patch -p1 --forward < 10_enable_susfs_for_ksu.patch
 
               cd ..
               ;;
@@ -822,7 +853,7 @@ jobs:
             fi
           fi
 
-          if [ "$BUILD_VARIANT" = "SukiSU-Nova" ]; then
+          if [ "$BUILD_VARIANT" = "SukiSU-Nova" ] || [ "$BUILD_VARIANT" = "Next" ] || [ "$BUILD_VARIANT" = "Official" ]; then
             # Android 12 - 5.10 修复
             if [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
                if [[ "$CURRENT_SUB" -le 209 ]]; then
@@ -1546,6 +1577,29 @@ jobs:
             fi
           fi
 
+      - name: Set build credit and cosmetic compiler banner
+        run: |
+          python3 - "$KERNEL_ROOT/common/scripts/mkcompile_h" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          text = path.read_text()
+          # These are displayed metadata. The actual Clang toolchain stays intact.
+          values = {
+              'LINUX_COMPILE_BY': 'varn',
+              'LINUX_COMPILE_HOST': 'darkstride',
+              'LINUX_COMPILER': 'Clang version 20',
+          }
+          for macro, value in values.items():
+              pattern = r'^#define ' + macro + r'\s+.*$'
+              text, count = re.subn(pattern, '#define ' + macro + '\t"' + value + '"', text, flags=re.MULTILINE)
+              if count != 1:
+                  sys.exit('Unexpected mkcompile_h definition for ' + macro)
+          path.write_text(text)
+          PY
+
       # ==================== 自定义构建时间 ====================
       - name: 设置自定义构建时间
         shell: bash
@@ -1593,7 +1647,7 @@ jobs:
             if [ "${{ inputs.clean_build }}" = "true" ]; then
               echo "清洁构建未集成 KernelSU、SUSFS 或可选功能补丁。"
             elif [ "${{ inputs.disable_bakasu }}" = "true" ]; then
-              echo "SukiSU Nova disabled; SUSFS disabled; optional features follow their switches."
+              echo "Root disabled; SUSFS disabled; optional features follow their switches."
             else
               echo "KernelSU 提交日期: ${KSU_LATEST_COMMIT_DATE}"
               echo "SUSFS 提交日期: ${SUSFS_LATEST_COMMIT_DATE}"
@@ -1673,7 +1727,7 @@ jobs:
 
           cp "$SRC_DIR/Image" ./
 
-      - name: Verify WildHorse release and built-in SukiSU Nova
+      - name: Verify WildHorse release and selected root
         if: inputs.android_version == 'android14' && inputs.kernel_version == '6.1'
         run: |
           set -euo pipefail
