@@ -89,11 +89,6 @@ on:
         description: "Clean build (without KernelSU, SUSFS, or optional patches)"
         type: boolean
         default: false
-      disable_bakasu:
-        description: "Disable selected root implementation (also disables SUSFS)"
-        type: boolean
-        default: false
-
       use_zram:
         description: "Enable enhanced ZRAM algorithms"
         type: boolean
@@ -186,7 +181,7 @@ jobs:
     steps:
       - name: Resolve selected root implementation
         id: resolve
-        if: inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') != true
+        if: inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') != true
         env:
           KSU_BRANCH: ${{ inputs.kernelsu_branch }}
           ROOT_FLAVOR: ${{ inputs.root_flavor || 'SukiSU-Nova' }}
@@ -298,13 +293,13 @@ jobs:
     secrets: inherit
     with:
       clean_build: ${{ inputs.clean_build }}
-      disable_bakasu: ${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      disable_bakasu: ${{ (inputs.root_flavor == 'NoRoot') }}
       android_version: ${{ matrix.android_version }}
       kernel_version: ${{ matrix.kernel_version }}
       sub_level: ${{ matrix.sub_level }}
       os_patch_level: ${{ matrix.os_patch_level }}
       revision: ${{ matrix.revision || '' }}
-      ksu_variant: ${{ inputs.clean_build && 'Clean' || (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') && 'NoKSU' || needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
+      ksu_variant: ${{ inputs.clean_build && 'Clean' || (inputs.root_flavor == 'NoRoot') && 'NoKSU' || needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
       ksu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       version: ${{ inputs.version || '' }}
       build_time: ${{ inputs.build_time || '' }}
@@ -312,7 +307,7 @@ jobs:
       use_bbg: ${{ inputs.use_bbg }}
       use_rekernel: ${{ inputs.use_rekernel || false }}
       supp_op: ${{ inputs.supp_op }}
-      enable_susfs: ${{ !inputs.cancel_susfs && !(inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      enable_susfs: ${{ !inputs.cancel_susfs && !(inputs.root_flavor == 'NoRoot') }}
       droidspaces: ${{ inputs.droidspaces || 'off' }}
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
       use_nomount: ${{ inputs.use_nomount || false }}
@@ -330,7 +325,7 @@ jobs:
       data_file: data/android12/5.10.json
       deduplicate_sublevels: false
       clean_build: ${{ inputs.clean_build }}
-      disable_bakasu: ${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      disable_bakasu: ${{ (inputs.root_flavor == 'NoRoot') }}
       kernelsu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       ksu_variant: ${{ needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
       version: ${{ inputs.version }}
@@ -357,7 +352,7 @@ jobs:
       data_file: data/android13/5.10.json
       deduplicate_sublevels: false
       clean_build: ${{ inputs.clean_build }}
-      disable_bakasu: ${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      disable_bakasu: ${{ (inputs.root_flavor == 'NoRoot') }}
       kernelsu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       ksu_variant: ${{ needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
       version: ${{ inputs.version }}
@@ -384,7 +379,7 @@ jobs:
       data_file: data/android13/5.15.json
       deduplicate_sublevels: true
       clean_build: ${{ inputs.clean_build }}
-      disable_bakasu: ${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      disable_bakasu: ${{ (inputs.root_flavor == 'NoRoot') }}
       kernelsu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       ksu_variant: ${{ needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
       version: ${{ inputs.version }}
@@ -411,7 +406,7 @@ jobs:
       data_file: data/android14/5.15.json
       deduplicate_sublevels: true
       clean_build: ${{ inputs.clean_build }}
-      disable_bakasu: ${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      disable_bakasu: ${{ (inputs.root_flavor == 'NoRoot') }}
       kernelsu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       ksu_variant: ${{ needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
       version: ${{ inputs.version }}
@@ -438,7 +433,7 @@ jobs:
       data_file: data/android14/6.1.json
       deduplicate_sublevels: true
       clean_build: ${{ inputs.clean_build }}
-      disable_bakasu: ${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      disable_bakasu: ${{ (inputs.root_flavor == 'NoRoot') }}
       kernelsu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       ksu_variant: ${{ needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
       version: ${{ inputs.version }}
@@ -465,7 +460,7 @@ jobs:
       data_file: data/android15/6.6.json
       deduplicate_sublevels: true
       clean_build: ${{ inputs.clean_build }}
-      disable_bakasu: ${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      disable_bakasu: ${{ (inputs.root_flavor == 'NoRoot') }}
       kernelsu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       ksu_variant: ${{ needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
       version: ${{ inputs.version }}
@@ -492,7 +487,7 @@ jobs:
       data_file: data/android16/6.12.json
       deduplicate_sublevels: true
       clean_build: ${{ inputs.clean_build }}
-      disable_bakasu: ${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      disable_bakasu: ${{ (inputs.root_flavor == 'NoRoot') }}
       kernelsu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       ksu_variant: ${{ needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
       version: ${{ inputs.version }}
@@ -519,7 +514,7 @@ jobs:
       data_file: data/android17/6.18.json
       deduplicate_sublevels: true
       clean_build: ${{ inputs.clean_build }}
-      disable_bakasu: ${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+      disable_bakasu: ${{ (inputs.root_flavor == 'NoRoot') }}
       kernelsu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       ksu_variant: ${{ needs.resolve-ksu-ref.outputs.variant || 'SukiSU-Nova' }}
       version: ${{ inputs.version }}
@@ -604,8 +599,8 @@ jobs:
       REPO_OWNER: ${{ github.repository_owner }}
       REPO_NAME: ${{ github.event.repository.name }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      BUILD_MODE: ${{ inputs.clean_build && 'Clean' || (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') && 'NoKSU' || needs.resolve-ksu-ref.outputs.variant }}
-      NOTIFY_SUSFS_STATUS: ${{ inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') != true && inputs.cancel_susfs != true && inputs.build_target == 'android17-6.18' && 'auto-skipped (Android 17/6.18)' || inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') != true && inputs.cancel_susfs != true && inputs.build_target == 'all' && 'enabled (Android 17/6.18 auto-skipped)' || inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') != true && inputs.cancel_susfs != true && 'true' || 'false' }}
+      BUILD_MODE: ${{ inputs.clean_build && 'Clean' || (inputs.root_flavor == 'NoRoot') && 'NoKSU' || needs.resolve-ksu-ref.outputs.variant }}
+      NOTIFY_SUSFS_STATUS: ${{ inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') != true && inputs.cancel_susfs != true && inputs.build_target == 'android17-6.18' && 'auto-skipped (Android 17/6.18)' || inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') != true && inputs.cancel_susfs != true && inputs.build_target == 'all' && 'enabled (Android 17/6.18 auto-skipped)' || inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') != true && inputs.cancel_susfs != true && 'true' || 'false' }}
       NOTIFY_ZRAM_STATUS: ${{ inputs.clean_build != true && inputs.use_zram && inputs.build_target == 'android17-6.18' && 'auto-skipped (Android 17/6.18)' || inputs.clean_build != true && inputs.use_zram && inputs.build_target == 'all' && 'enabled (Android 17/6.18 auto-skipped)' || inputs.clean_build != true && inputs.use_zram && 'true' || 'false' }}
       NOTIFY_REKERNEL_STATUS: ${{ inputs.clean_build != true && inputs.use_rekernel && inputs.build_target == 'android17-6.18' && 'auto-skipped (Android 17/6.18)' || inputs.clean_build != true && inputs.use_rekernel && inputs.build_target == 'all' && 'enabled (Android 17/6.18 auto-skipped)' || inputs.clean_build != true && inputs.use_rekernel && 'true' || 'false' }}
 
@@ -624,7 +619,7 @@ jobs:
             echo "MOUNT_TYPE=" >> "$GITHUB_ENV"
             echo "BRANCH_INFO=" >> "$GITHUB_ENV"
           else
-            if [ "${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
+            if [ "${{ (inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
               KSU_NAME="NoKSU"
             else
               KSU_NAME="${{ needs.resolve-ksu-ref.outputs.variant }}"
@@ -643,10 +638,10 @@ jobs:
             echo "LZ4_STATUS=$LZ4_STATUS" >> "$GITHUB_ENV"
             echo "LZ4_SUFFIX=$LZ4_SUFFIX" >> "$GITHUB_ENV"
 
-            if [ "${{ inputs.cancel_susfs }}" = "true" ] || [ "${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
+            if [ "${{ inputs.cancel_susfs }}" = "true" ] || [ "${{ (inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
               RELEASE_NAME="GKI内核: ${KSU_NAME}"
               echo "SUSFS_SUFFIX=" >> "$GITHUB_ENV"
-              if [ "${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
+              if [ "${{ (inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
                 echo "SUSFS_STATUS=未集成（BakaSU 已禁用） / Not included (BakaSU disabled)" >> "$GITHUB_ENV"
               else
                 echo "SUSFS_STATUS=未集成 / Not included" >> "$GITHUB_ENV"
@@ -675,7 +670,7 @@ jobs:
               echo "COMPATIBILITY_NOTE=Android 17 / 6.18 自动跳过 SUSFS、ZRAM/LZ4KD、NTSync、Re-Kernel、一加 8E 专用补丁。" >> "$GITHUB_ENV"
             fi
 
-            if [ "${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
+            if [ "${{ (inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
               echo "BRANCH_INFO=" >> "$GITHUB_ENV"
             else
               echo "BRANCH_INFO=(${{ inputs.kernelsu_branch || 'main' }})" >> "$GITHUB_ENV"
@@ -711,7 +706,7 @@ jobs:
           ref: ${{ github.sha }}
 
       - name: 获取 KernelSU 提交信息
-        if: inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') != true
+        if: inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') != true
         run: |
           KSU_REF="${{ needs.resolve-ksu-ref.outputs.sha }}"
           case "${{ inputs.root_flavor || 'SukiSU-Nova' }}" in
@@ -730,7 +725,7 @@ jobs:
           echo "KSU_URL=$KSU_URL" >> "$GITHUB_ENV"
 
       - name: 获取 SUSFS 提交信息
-        if: inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') != true
+        if: inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') != true
         run: |
           GITLAB_OWNER="simonpunk"
           GITLAB_REPO="susfs4ksu"
@@ -777,7 +772,7 @@ jobs:
           EOF
 
       - name: 生成无 BakaSU 发布说明
-        if: ${{ inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}
+        if: ${{ inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') }}
         run: |
           cat > release_body.md << 'EOF'
           ## GKI 内核：无 BakaSU / GKI Kernel without BakaSU
@@ -804,7 +799,7 @@ jobs:
           EOF
 
       - name: 生成常规发布说明
-        if: inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') != true
+        if: inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') != true
         run: |
           cat > release_body.md << EOF
           ## 📦 本次发布内容 / Release Contents
@@ -907,7 +902,7 @@ jobs:
         run: |
           if [ "${{ inputs.clean_build }}" = "true" ]; then
             SUS_VERSION="clean"
-          elif [ "${{ (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
+          elif [ "${{ (inputs.root_flavor == 'NoRoot') }}" = "true" ]; then
             SUS_VERSION="no-bakasu"
           elif [ "${{ inputs.build_target }}" = "android17-6.18" ]; then
             SUS_VERSION="no-susfs"
@@ -1018,7 +1013,7 @@ jobs:
           LZ4KD = $NOTIFY_ZRAM_STATUS
           Re-Kernel = $NOTIFY_REKERNEL_STATUS
           Droidspaces = ${{ inputs.clean_build && 'off' || inputs.droidspaces }}${{ inputs.clean_build != true && inputs.build_target != 'android17-6.18' && inputs.droidspaces_ntsync && ' + NTSync' || '' }}
-          KPatch-Next Support = ${{ inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') != true && 'true' || 'false' }}</pre>
+          KPatch-Next Support = ${{ inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') != true && 'true' || 'false' }}</pre>
           Change Log: 
           <pre>${INPUT_CHANGE_LOG}
           </pre>
@@ -1062,7 +1057,7 @@ jobs:
           LZ4KD = $NOTIFY_ZRAM_STATUS
           Re-Kernel = $NOTIFY_REKERNEL_STATUS
           Droidspaces = ${{ inputs.clean_build && 'off' || inputs.droidspaces }}${{ inputs.clean_build != true && inputs.build_target != 'android17-6.18' && inputs.droidspaces_ntsync && ' + NTSync' || '' }}
-          KPatch-Next Support = ${{ inputs.clean_build != true && (inputs.disable_bakasu || inputs.root_flavor == 'NoRoot') != true && 'true' || 'false' }}</pre>
+          KPatch-Next Support = ${{ inputs.clean_build != true && (inputs.root_flavor == 'NoRoot') != true && 'true' || 'false' }}</pre>
           Change Log: 
           <pre>${INPUT_CHANGE_LOG}
           </pre>
