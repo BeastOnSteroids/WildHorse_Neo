@@ -36,11 +36,11 @@ on:
         default: Actions
 
       # ==================== KernelSU 配置 ====================
-      # KernelSU 变体固定为 BakaSU
+      # SukiSU Nova built-in integration.
       kernelsu_branch:
-        description: "BakaSU branch (main/dev/custom branch; leave blank to use main)"
+        description: "SukiSU Nova builtin ref (blank/main/builtin uses the pinned builtin commit)"
         type: string
-        default: "main"
+        default: "builtin"
         required: false
 
       # ==================== 可选配置 ====================
@@ -82,7 +82,7 @@ on:
         type: boolean
         default: false
       disable_bakasu:
-        description: "Disable BakaSU (SUSFS is disabled automatically; other optional features still apply)"
+        description: "Disable SukiSU Nova (also disables SUSFS; other optional features still apply)"
         type: boolean
         default: false
 
@@ -175,21 +175,23 @@ jobs:
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
     steps:
-      - name: 固定 BakaSU 构建提交
+      - name: Resolve SukiSU Nova builtin commit
         id: resolve
         if: inputs.clean_build != true && inputs.disable_bakasu != true
         env:
-          KSU_BRANCH: ${{ inputs.kernelsu_branch || 'main' }}
+          KSU_BRANCH: ${{ inputs.kernelsu_branch || 'builtin' }}
         run: |
           set -euo pipefail
-          if [[ "$KSU_BRANCH" =~ ^[a-fA-F0-9]{40}$ ]]; then
+          if [[ "$KSU_BRANCH" == "main" || "$KSU_BRANCH" == "builtin" ]]; then
+            sha="4bec532dd447e2852aa8932afa768255350c103a"
+          elif [[ "$KSU_BRANCH" =~ ^[a-fA-F0-9]{40}$ ]]; then
             sha="${KSU_BRANCH,,}"
           else
             git check-ref-format --branch "$KSU_BRANCH"
-            sha=$(git ls-remote --heads https://github.com/Baka-SU/BakaSU.git "refs/heads/$KSU_BRANCH" | awk '{ print $1 }')
+            sha=$(git ls-remote --heads https://github.com/SukiSU-Nova/SukiSU-Nova.git "refs/heads/$KSU_BRANCH" | awk '{ print $1 }')
           fi
           if [[ ! "$sha" =~ ^[a-fA-F0-9]{40}$ ]]; then
-            echo "::error::找不到 BakaSU 分支或提交: $KSU_BRANCH"
+            echo "::error::Cannot resolve SukiSU Nova ref: $KSU_BRANCH"
             exit 1
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
@@ -264,7 +266,7 @@ jobs:
       sub_level: ${{ matrix.sub_level }}
       os_patch_level: ${{ matrix.os_patch_level }}
       revision: ${{ matrix.revision || '' }}
-      ksu_variant: ${{ inputs.clean_build && 'Clean' || inputs.disable_bakasu && 'NoKSU' || 'BakaSU' }}
+      ksu_variant: ${{ inputs.clean_build && 'Clean' || inputs.disable_bakasu && 'NoKSU' || 'SukiSU-Nova' }}
       ksu_branch: ${{ needs.resolve-ksu-ref.outputs.sha || 'main' }}
       version: ${{ inputs.version || '' }}
       build_time: ${{ inputs.build_time || '' }}
@@ -666,7 +668,7 @@ jobs:
         if: inputs.clean_build != true && inputs.disable_bakasu != true
         run: |
           KSU_REF="${{ needs.resolve-ksu-ref.outputs.sha }}"
-          KSU_URL="https://github.com/Baka-SU/BakaSU/commit/$KSU_REF"
+          KSU_URL="https://github.com/SukiSU-Nova/SukiSU-Nova/commit/$KSU_REF"
 
           echo "KSU_REF=$KSU_REF" >> "$GITHUB_ENV"
           echo "KSU_URL=$KSU_URL" >> "$GITHUB_ENV"
