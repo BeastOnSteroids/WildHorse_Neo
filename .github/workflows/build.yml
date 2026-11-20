@@ -1649,7 +1649,13 @@ jobs:
               if [ "${{ inputs.kernel_version }}" = "6.12" ] || [ "${{ inputs.kernel_version }}" = "6.18" ]; then
                 LTO_FLAG="--lto=none"
               fi
-              tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast $LTO_FLAG $FRAG_FLAG //common:kernel_aarch64_dist || exit 1
+              # AnyKernel3 consumes Image directly. The dist target also packages
+              # system_dlkm, whose image tool fails decoding this branded release.
+              BUILD_TARGET="//common:kernel_aarch64_dist"
+              if [ "${{ inputs.android_version }}-${{ inputs.kernel_version }}" = "android14-6.1" ]; then
+                BUILD_TARGET="//common:kernel_aarch64"
+              fi
+              tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast $LTO_FLAG $FRAG_FLAG "$BUILD_TARGET" || exit 1
               strings ./bazel-bin/common/kernel_aarch64/Image | grep 'Linux version'
             fi
 
@@ -1763,7 +1769,11 @@ jobs:
               if [ "${{ inputs.kernel_version }}" = "6.12" ] || [ "${{ inputs.kernel_version }}" = "6.18" ]; then
                 LTO_FLAG="--lto=none"
               fi
-              tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast $LTO_FLAG $FRAG_FLAG //common:kernel_aarch64_dist || exit 1
+              BUILD_TARGET="//common:kernel_aarch64_dist"
+              if [ "${{ inputs.android_version }}-${{ inputs.kernel_version }}" = "android14-6.1" ]; then
+                BUILD_TARGET="//common:kernel_aarch64"
+              fi
+              tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast $LTO_FLAG $FRAG_FLAG "$BUILD_TARGET" || exit 1
               strings ./bazel-bin/common/kernel_aarch64/Image | grep 'Linux version'
             fi
 
