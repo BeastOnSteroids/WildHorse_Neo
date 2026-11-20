@@ -1677,8 +1677,24 @@ jobs:
         if: inputs.android_version == 'android14' && inputs.kernel_version == '6.1'
         run: |
           set -euo pipefail
-          EXPECTED="${{ inputs.kernel_version }}.${{ inputs.sub_level }}-🐎WildHorse+"
-          strings -e S Image | grep -F "Linux version ${EXPECTED} "
+          SOURCE_VERSION=$(awk '$1 == "VERSION" {print $3}' "$KERNEL_ROOT/common/Makefile")
+          SOURCE_PATCHLEVEL=$(awk '$1 == "PATCHLEVEL" {print $3}' "$KERNEL_ROOT/common/Makefile")
+          SOURCE_SUBLEVEL=$(awk '$1 == "SUBLEVEL" {print $3}' "$KERNEL_ROOT/common/Makefile")
+          EXPECTED="${SOURCE_VERSION}.${SOURCE_PATCHLEVEL}.${SOURCE_SUBLEVEL}-🐎WildHorse+"
+          echo "Checking actual source release: $EXPECTED"
+          python3 - "$EXPECTED" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          image = pathlib.Path('Image').read_bytes()
+          expected = ('Linux version ' + sys.argv[1] + ' ').encode('utf-8')
+          banners = re.findall(rb'Linux version [^\x00\r\n]+', image)
+          for banner in banners:
+              print(banner.decode('utf-8', errors='replace'))
+          if expected not in image:
+              sys.exit('Kernel release verification failed. See actual banners above.')
+          PY
           if [ "${{ inputs.clean_build }}" != "true" ] && [ "${{ inputs.disable_bakasu }}" != "true" ]; then
             bash "$KERNEL_ROOT/common/scripts/extract-ikconfig" Image > verified-kernel.config
             grep -qx 'CONFIG_KSU=y' verified-kernel.config
