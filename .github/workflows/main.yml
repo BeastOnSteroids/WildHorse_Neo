@@ -42,7 +42,6 @@ on:
         options:
           - SukiSU-Nova
           - KernelSU-Next
-          - KernelSU
           - All
           - NoRoot
         default: SukiSU-Nova
@@ -202,7 +201,7 @@ jobs:
           fi
           flavors=("$ROOT_FLAVOR")
           if [ "$ROOT_FLAVOR" = All ]; then
-            flavors=(SukiSU-Nova KernelSU-Next KernelSU)
+            flavors=(SukiSU-Nova KernelSU-Next)
             if [[ -n "$KSU_BRANCH" && "$KSU_BRANCH" != main && "$KSU_BRANCH" != builtin ]]; then
               echo "::error::Leave the root branch field blank for All; each flavor has its own pinned commit."
               exit 1
@@ -224,11 +223,6 @@ jobs:
                 repo=https://github.com/pershoot/KernelSU-Next.git
                 pin=39b15dead6fa806cb3582f866b081fa1d9e1c9e4
               fi
-              ;;
-            KernelSU)
-              variant=Official
-              repo=https://github.com/tiann/KernelSU.git
-              pin=64833c005eca6a8dc3d73ec2d37d84c37e0d9ad2
               ;;
             *) echo "::error::Unknown root flavor: $ROOT_FLAVOR"; exit 1 ;;
           esac
@@ -769,7 +763,6 @@ jobs:
           KSU_REF="${{ needs.resolve-ksu-ref.outputs.sha }}"
           case "${{ inputs.root_flavor || 'SukiSU-Nova' }}" in
             SukiSU-Nova) KSU_REPO=SukiSU-Nova/SukiSU-Nova ;;
-            KernelSU) KSU_REPO=tiann/KernelSU ;;
             KernelSU-Next)
               KSU_REPO=KernelSU-Next/KernelSU-Next
               if [ "${{ inputs.cancel_susfs }}" != true ]; then
