@@ -527,6 +527,60 @@ jobs:
           echo "ACTUAL_SUBLEVEL=$ACTUAL_SUBLEVEL" >> $GITHUB_ENV
           echo "实际子版本号: $ACTUAL_SUBLEVEL"
 
+      - name: Fix Linux 6.1 EXT4 NULL-folio regression
+        if: inputs.kernel_version == '6.1'
+        run: |
+          # Adapt the 6.1.y fix by Elliot Berman to the checked-out GKI source.
+          # https://lists.openwall.net/linux-kernel/2026/11/02/2194
+          python3 - "$KERNEL_ROOT/common" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          root = Path(sys.argv[1])
+          path = root / 'fs/ext4/mballoc.c'
+          text = path.read_text()
+          filemap = (root / 'mm/filemap.c').read_text()
+          api_start = filemap.index('struct folio *__filemap_get_folio(')
+          api_end = filemap.index('\n}', api_start) + 2
+          if 'ERR_PTR(' in filemap[api_start:api_end]:
+              print('filemap uses ERR_PTR semantics; keeping its matching EXT4 checks.')
+              sys.exit(0)
+
+          functions = {
+              'ext4_mb_get_buddy_page_lock': 4,
+              'ext4_mb_load_buddy_gfp': 10,
+          }
+          changed = 0
+          for name, expected_count in functions.items():
+              match = re.search(r'(?m)^(?:static\s+)?(?:noinline_for_stack\s+)?int\s+' + name + r'\(', text)
+              if match is None:
+                  sys.exit('Cannot identify EXT4 function ' + name)
+              start = match.start()
+              end = text.index('\n}', start) + 2
+              body = text[start:end]
+              if '__filemap_get_folio(' not in body or 'IS_ERR(folio)' not in body:
+                  print(name + ' does not need the NULL-folio backport.')
+                  continue
+              replacements = {
+                  '!IS_ERR(folio)': 'folio',
+                  'IS_ERR(folio)': '!folio',
+                  'PTR_ERR(folio)': '-ENOMEM',
+              }
+              count = 0
+              for before, after in replacements.items():
+                  count += body.count(before)
+                  body = body.replace(before, after)
+              if count != expected_count:
+                  sys.exit('Unexpected EXT4 layout in ' + name + ': ' + str(count))
+              text = text[:start] + body + text[end:]
+              changed += count
+              print('Applied NULL-folio checks to ' + name)
+          if changed:
+              path.write_text(text)
+          print('EXT4 substitutions applied: ' + str(changed))
+          PY
+
       # ==================== 修复上游 vm_flags_clear 未声明 ====================
       # Google 向部分 GKI 分支（如 deprecated/android12-5.10-2024-11）回移 16KB 页迁移特性时，
       # mm/mmap.c 调用了 vm_flags_clear()，但 include 头文件未同步声明该 helper，
