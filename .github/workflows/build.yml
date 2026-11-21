@@ -662,10 +662,6 @@ jobs:
                 ROOT_PIN=39b15dead6fa806cb3582f866b081fa1d9e1c9e4
               fi
               ;;
-            Official)
-              ROOT_REPO=https://github.com/tiann/KernelSU.git
-              ROOT_PIN=64833c005eca6a8dc3d73ec2d37d84c37e0d9ad2
-              ;;
             *) echo "::error::Unsupported root variant: $BUILD_VARIANT"; exit 1 ;;
           esac
           if [ -z "$branch_input" ] || [ "$branch_input" = "main" ] || [ "$branch_input" = "builtin" ]; then
@@ -693,7 +689,7 @@ jobs:
           ln -s ../../KernelSU/kernel common/drivers/kernelsu
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> common/drivers/Makefile
           sed -i '/^endmenu/i source "drivers/kernelsu/Kconfig"' common/drivers/Kconfig
-          if [ "${{ inputs.enable_susfs }}" = true ] && [ "$BUILD_VARIANT" != Official ]; then
+          if [ "${{ inputs.enable_susfs }}" = true ]; then
             if ! grep -rq --include='Kconfig*' '^config KSU_SUSFS$' KernelSU/kernel; then
               echo "::error::$BUILD_VARIANT ref does not include the required inline SUSFS integration."
               exit 1
@@ -734,26 +730,10 @@ jobs:
           cp $SUSFS4KSU/kernel_patches/include/linux/* ./common/include/linux/
 
           case "$BUILD_VARIANT" in
-            "Official")
-              cd ./KernelSU
-              ENABLE_PATCH="$GITHUB_WORKSPACE/.github/patches/10_enable_susfs_for_ksu.patch"
-              if [ ! -f "$ENABLE_PATCH" ]; then
-                ENABLE_PATCH="$SUSFS4KSU/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
-              fi
-              cp "$ENABLE_PATCH" ./10_enable_susfs_for_ksu.patch
-              # 兼容旧版补丁：仅当补丁仍只修改 kernel/Makefile 时，才替换为 kernel/Kbuild
-              if grep -q '^diff --git a/kernel/Makefile b/kernel/Makefile' ./10_enable_susfs_for_ksu.patch \
-                && ! grep -q '^diff --git a/kernel/Kbuild b/kernel/Kbuild' ./10_enable_susfs_for_ksu.patch; then
-                sed -i 's|kernel/Makefile|kernel/Kbuild|g' ./10_enable_susfs_for_ksu.patch
-              fi
-              patch -p1 --dry-run --forward < 10_enable_susfs_for_ksu.patch
-              patch -p1 --forward < 10_enable_susfs_for_ksu.patch
-
-              cd ..
+            "Next"|"SukiSU-Nova")
+              echo "Next/SukiSU-Nova use inline SUSFS support"
               ;;
-            "Next"|"SukiSU"|"BakaSU"|"SukiSU-Nova")
-              echo "Next/SukiSU/BakaSU 使用内置 SUSFS 支持"
-              ;;
+            *) echo "::error::Unsupported root variant: $BUILD_VARIANT"; exit 1 ;;
           esac
 
           cd $KERNEL_ROOT/common
@@ -907,7 +887,7 @@ jobs:
             fi
           fi
 
-          if [ "$BUILD_VARIANT" = "SukiSU-Nova" ] || [ "$BUILD_VARIANT" = "Next" ] || [ "$BUILD_VARIANT" = "Official" ]; then
+          if [ "$BUILD_VARIANT" = "SukiSU-Nova" ] || [ "$BUILD_VARIANT" = "Next" ]; then
             # Android 12 - 5.10 修复
             if [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
                if [[ "$CURRENT_SUB" -le 209 ]]; then
@@ -1644,7 +1624,7 @@ jobs:
           values = {
               'LINUX_COMPILE_BY': 'varn',
               'LINUX_COMPILE_HOST': 'darkstride',
-              'LINUX_COMPILER': 'Clang version 20',
+              'LINUX_COMPILER': 'Android (13174946, +pgo, +bolt, +lto, +mlgo, based on r547379) clang version 20.0.0 (https://android.googlesource.com/toolchain/llvm-project b718bcaf8c198c82f3021447d943401e3ab5bd54)',
           }
           for macro, value in values.items():
               pattern = r'^#define ' + macro + r'\s+.*$'
